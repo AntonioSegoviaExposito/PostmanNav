@@ -1,11 +1,11 @@
 {
   "name": "postman-nav",
-  "version": "1.0.0",
-  "description": "Navigate and inspect Postman collections from the CLI",
-  "bin": {
-    "postman-nav": "./bin/postman-nav.js"
-  },
+  "version": "2.0.0",
+  "type": "module",
+  "description": "MCP server to navigate and inspect Postman collections",
+  "main": "src/server.js",
   "dependencies": {
-    "commander": "^12.0.0"
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "zod": "^3.24.0"
   }
 }

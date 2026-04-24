@@ -1,33 +1,28 @@
-const { readFileSync } = require('fs');
-const { resolve } = require('path');
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
 
-function loadCollection(filePath) {
-  const raw = readFileSync(resolve(filePath), 'utf-8');
-  return JSON.parse(raw);
+export function loadCollection(filePath) {
+  return JSON.parse(readFileSync(resolve(filePath), 'utf-8'));
 }
 
-function findFolder(collection, query) {
+export function findFolder(collection, query) {
   const items = collection.item || [];
   if (/^\d+$/.test(query)) {
     const idx = Number(query);
-    if (idx < 0 || idx >= items.length) return null;
-    return { index: idx, folder: items[idx] };
+    return idx >= 0 && idx < items.length ? { index: idx, folder: items[idx] } : null;
   }
   const lower = query.toLowerCase();
   const idx = items.findIndex(i => i.name.toLowerCase().includes(lower));
   return idx === -1 ? null : { index: idx, folder: items[idx] };
 }
 
-function findRequest(folder, query) {
+export function findRequest(folder, query) {
   const items = folder.item || [];
   if (/^\d+$/.test(query)) {
     const idx = Number(query);
-    if (idx < 0 || idx >= items.length) return null;
-    return { index: idx, request: items[idx] };
+    return idx >= 0 && idx < items.length ? { index: idx, request: items[idx] } : null;
   }
   const lower = query.toLowerCase();
   const idx = items.findIndex(i => i.name.toLowerCase().includes(lower));
   return idx === -1 ? null : { index: idx, request: items[idx] };
 }
-
-module.exports = { loadCollection, findFolder, findRequest };
