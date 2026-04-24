@@ -1,0 +1,11 @@
+{
+  "name": "postman-nav",
+  "version": "1.0.0",
+  "description": "Navigate and inspect Postman collections from the CLI",
+  "bin": {
+    "postman-nav": "./bin/postman-nav.js"
+  },
+  "dependencies": {
+    "commander": "^12.0.0"
+  }
+}
