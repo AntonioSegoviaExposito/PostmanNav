@@ -1,9 +1,8 @@
 {
   "name": "postman-nav",
-  "version": "2.0.0",
+  "version": "1.0.0",
   "type": "module",
-  "description": "MCP server to navigate and inspect Postman collections",
-  "main": "src/server.js",
+  "bin": "src/server.js",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",
     "zod": "^3.24.0"

@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
@@ -21,17 +22,28 @@ function findItem(items, query) {
   return idx === -1 ? null : { index: idx, item: items[idx] };
 }
 
-function formatItems(items, showMethod) {
+function drillDown(items, path) {
+  const segments = path.split('/').filter(Boolean);
+  let current = items;
+  for (const seg of segments) {
+    const result = findItem(current, seg);
+    if (!result || !result.item.item) return null;
+    current = result.item.item;
+  }
+  return current;
+}
+
+function formatItems(items) {
   if (!items.length) return 'Empty.';
   return items.map((item, i) => {
-    if (showMethod) return `[${i}]  ${(item.request?.method || '???').padEnd(7)} ${item.name}`;
-    return `[${i}]  ${item.name}  (${(item.item || []).length} requests)`;
+    if (item.request) return `[${i}]  ${(item.request.method || '???').padEnd(7)} ${item.name}`;
+    return `[${i}]  ${item.name}  (${(item.item || []).length} items)`;
   }).join('\n');
 }
 
 // --- Server ---
 
-const server = new McpServer({ name: 'postman-nav', version: '1.1.0' });
+const server = new McpServer({ name: 'postman-nav', version: '1.0.0' });
 const text = (t) => ({ content: [{ type: 'text', text: t }] });
 
 server.registerTool(
@@ -45,8 +57,7 @@ server.registerTool(
   },
   ({ collection }) => {
     const items = loadCollection(collection).item || [];
-    const flat = items.length > 0 && items[0].request && !items[0].item;
-    return text(formatItems(items, flat));
+    return text(formatItems(items));
   },
 );
 
@@ -57,17 +68,14 @@ server.registerTool(
     description: 'List requests inside a folder of a Postman collection.',
     inputSchema: {
       collection: z.string().describe('Absolute path to a .postman_collection.json file'),
-      folder: z.string().describe('Folder index (e.g. "0") or name substring (case-insensitive)'),
+      folder: z.string().describe('Folder index or name substring. Use "/" for nested paths (e.g. "0/1")'),
     },
   },
   ({ collection, folder }) => {
-    const col = loadCollection(collection);
-    const items = col.item || [];
-    const flat = items.length > 0 && items[0].request && !items[0].item;
-    if (flat) return text(formatItems(items, true));
-    const result = findItem(items, folder);
-    if (!result) return text(`Folder not found: "${folder}"`);
-    return text(formatItems(result.item.item || [], true));
+    const items = loadCollection(collection).item || [];
+    const target = drillDown(items, folder);
+    if (!target) return text(`Folder not found: "${folder}"`);
+    return text(formatItems(target));
   },
 );
 
@@ -78,7 +86,7 @@ server.registerTool(
     description: 'Inspect a specific request. Shows method, URL, auth, headers, cookies, params, body, pre-request script, and/or test script.',
     inputSchema: {
       collection: z.string().describe('Absolute path to a .postman_collection.json file'),
-      folder: z.string().describe('Folder index or name substring'),
+      folder: z.string().describe('Folder index or name substring. Use "/" for nested paths (e.g. "0/1")'),
       request: z.string().describe('Request index or name substring'),
       sections: z.array(z.enum(['auth', 'headers', 'cookies', 'params', 'body', 'pre-request', 'test']))
         .optional()
@@ -86,10 +94,8 @@ server.registerTool(
     },
   },
   ({ collection, folder, request, sections }) => {
-    const col = loadCollection(collection);
-    const items = col.item || [];
-    const flat = items.length > 0 && items[0].request && !items[0].item;
-    const target = flat ? items : findItem(items, folder)?.item?.item || null;
+    const items = loadCollection(collection).item || [];
+    const target = drillDown(items, folder);
     if (!target) return text(`Folder not found: "${folder}"`);
     const r = findItem(target, request);
     if (!r) return text(`Request not found: "${request}"`);
