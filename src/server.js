@@ -6,8 +6,6 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { inspectRequest } from './inspect.js';
 
-// --- Helpers ---
-
 function loadCollection(filePath) {
   return JSON.parse(readFileSync(resolve(filePath), 'utf-8'));
 }
@@ -22,15 +20,20 @@ function findItem(items, query) {
   return idx === -1 ? null : { index: idx, item: items[idx] };
 }
 
-function drillDown(items, path) {
+function navigate(items, path) {
+  if (!path) return { type: 'folder', items };
   const segments = path.split('/').filter(Boolean);
   let current = items;
-  for (const seg of segments) {
-    const result = findItem(current, seg);
-    if (!result || !result.item.item) return null;
+  for (let i = 0; i < segments.length; i++) {
+    const result = findItem(current, segments[i]);
+    if (!result) return null;
+    if (i === segments.length - 1) {
+      if (result.item.request) return { type: 'request', item: result.item };
+      return { type: 'folder', items: result.item.item || [] };
+    }
+    if (!result.item.item) return null;
     current = result.item.item;
   }
-  return current;
 }
 
 function formatItems(items) {
@@ -41,69 +44,30 @@ function formatItems(items) {
   }).join('\n');
 }
 
-// --- Server ---
-
 const server = new McpServer({ name: 'postman-nav', version: '1.0.0' });
 const text = (t) => ({ content: [{ type: 'text', text: t }] });
 
 server.registerTool(
-  'postman_folders',
+  'postman_nav',
   {
-    title: 'List Postman folders',
-    description: 'List top-level folders (flows) in a Postman collection.',
+    title: 'Navigate Postman collection',
+    description: 'Navigate a Postman collection. Without path shows root. Path to a folder lists its contents. Path to a request shows full details.',
     inputSchema: {
       collection: z.string().describe('Absolute path to a .postman_collection.json file'),
-    },
-  },
-  ({ collection }) => {
-    const items = loadCollection(collection).item || [];
-    return text(formatItems(items));
-  },
-);
-
-server.registerTool(
-  'postman_requests',
-  {
-    title: 'List Postman requests',
-    description: 'List requests inside a folder of a Postman collection.',
-    inputSchema: {
-      collection: z.string().describe('Absolute path to a .postman_collection.json file'),
-      folder: z.string().describe('Folder index or name substring. Use "/" for nested paths (e.g. "0/1")'),
-    },
-  },
-  ({ collection, folder }) => {
-    const items = loadCollection(collection).item || [];
-    const target = drillDown(items, folder);
-    if (!target) return text(`Folder not found: "${folder}"`);
-    return text(formatItems(target));
-  },
-);
-
-server.registerTool(
-  'postman_inspect',
-  {
-    title: 'Inspect Postman request',
-    description: 'Inspect a specific request. Shows method, URL, auth, headers, cookies, params, body, pre-request script, and/or test script.',
-    inputSchema: {
-      collection: z.string().describe('Absolute path to a .postman_collection.json file'),
-      folder: z.string().describe('Folder index or name substring. Use "/" for nested paths (e.g. "0/1")'),
-      request: z.string().describe('Request index or name substring'),
+      path: z.string().optional().describe('Navigation path (e.g. "0/1/2" or "Login"). Omit for root.'),
       sections: z.array(z.enum(['auth', 'headers', 'cookies', 'params', 'body', 'pre-request', 'test']))
         .optional()
-        .describe('Sections to show. Omit for all.'),
+        .describe('Filter request sections. Omit for all.'),
     },
   },
-  ({ collection, folder, request, sections }) => {
+  ({ collection, path, sections }) => {
     const items = loadCollection(collection).item || [];
-    const target = drillDown(items, folder);
-    if (!target) return text(`Folder not found: "${folder}"`);
-    const r = findItem(target, request);
-    if (!r) return text(`Request not found: "${request}"`);
-    return text(inspectRequest(r.item, sections || []));
+    const target = navigate(items, path);
+    if (!target) return text(`Not found: "${path}"`);
+    if (target.type === 'folder') return text(formatItems(target.items));
+    return text(inspectRequest(target.item, sections || []));
   },
 );
-
-// --- Start ---
 
 const transport = new StdioServerTransport();
 await server.connect(transport);
