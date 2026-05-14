@@ -51,10 +51,10 @@ server.registerTool(
   'postman_nav',
   {
     title: 'Navigate Postman collection',
-    description: 'Navigate a Postman collection. Without path shows root. Path to a folder lists its contents. Path to a request shows full details.',
+    description: 'Navigate a Postman collection by path. Omit path for root. Use index or name substring per level separated by "/" (e.g. "0", "0/1", "Login/2"). Folders list contents, requests show full details.',
     inputSchema: {
       collection: z.string().describe('Absolute path to a .postman_collection.json file'),
-      path: z.string().optional().describe('Navigation path (e.g. "0/1/2" or "Login"). Omit for root.'),
+      path: z.string().optional().describe('Path segments separated by "/". Each segment is an index (e.g. "0") or name substring (e.g. "Login"). Omit for root.'),
       sections: z.array(z.enum(['auth', 'headers', 'cookies', 'params', 'body', 'pre-request', 'test']))
         .optional()
         .describe('Filter request sections. Omit for all.'),
